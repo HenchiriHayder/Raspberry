@@ -1,5 +1,10 @@
 import pygame
 from pygame.locals import *
+import socket
+from queue import Queue
+import threading
+
+myQueue = Queue()
 
 class Pong(object):
     def __init__(self, screensize):
@@ -21,8 +26,7 @@ class Pong(object):
 
         self.speedx = 2
         self.speedy = 5
-        #CODE TASK: change speed/radius as game progresses to make it harder
-        #CODE BONUS: adjust ratio of x and y speeds to make it harder as game progresses
+
 
         self.hit_edge_left = False
         self.hit_edge_right = False
@@ -44,7 +48,7 @@ class Pong(object):
         elif self.rect.left <= 0:
             self.hit_edge_left = True
 
-        #CODE TASK: Change the direction of the pong, based on where it hits the paddles (HINT: check the center points of each)
+        
 
         if self.rect.colliderect(player_paddle.rect):
             self.direction[0] = -1
@@ -70,9 +74,9 @@ class AIPaddle(object):
 
         self.color = (255,100,100)
 
-        #CODE TASK: Adjust size of AI paddle as match progresses to make it more difficult
+        
 
-        self.speed = 3
+        self.speed = 5
 
     def update(self, pong):
         if pong.rect.top < self.rect.top:
@@ -101,7 +105,7 @@ class PlayerPaddle(object):
 
         self.color = (100,255,100)
 
-        #CODE TASK: Adjust size of Player paddle as match progresses to make it more difficult
+        
 
         self.speed = 3
         self.direction = 0
@@ -120,18 +124,46 @@ class PlayerPaddle(object):
         pygame.draw.rect(screen, (0,0,0), self.rect, 1)
 
 
+def insert_In_Queue():
+    server = socket.socket()
+    host = '127.0.0.1'
+    port = 1234
+    global myQueue
+
+    server.bind((host, port))
+    server.listen(1)
+    print ("[*] Server started !")
+    client, addr = server.accept()
+    print("[*] Got connection from ip: ", addr[0])
+    while True:
+        data = client.recv(1024).decode()
+        client.send(data.encode())
+        myQueue.put(data);
+
+#def retrieve_From_Queue():
+
+
+
+
 def main():
     pygame.init()
+
+    global myQueue
 
     screensize = (640,480)
 
     screen = pygame.display.set_mode(screensize)
 
     clock = pygame.time.Clock()
+    data = ""
 
     pong = Pong(screensize)
     ai_paddle = AIPaddle(screensize)
     player_paddle = PlayerPaddle(screensize)
+
+    t = threading.Thread(target=insert_In_Queue)
+    t.daemon = True
+    t.start()
 
     running = True
 
@@ -144,24 +176,26 @@ def main():
             if event.type == QUIT:
                 running = False
 
-            if event.type == KEYDOWN:
-                if event.key == K_UP:
-                    player_paddle.direction = -1
-                elif event.key == K_DOWN:
-                    player_paddle.direction = 1
-            if event.type == KEYUP:
-                if event.key == K_UP and player_paddle.direction == -1:
-                    player_paddle.direction = 0
-                elif event.key == K_DOWN and player_paddle.direction == 1:
-                    player_paddle.direction = 0
+        if(myQueue.empty()):
+            player_paddle.direction = 0
+        else:
+
+            data = myQueue.get()
+            myQueue.task_done()
+            
+            if(data == "z"):
+                player_paddle.direction = -1
+            elif(data == "s"):
+                player_paddle.direction = 1
+            else:
+                player_paddle.direction = 0
 
         #object updating phase
         ai_paddle.update(pong)
         player_paddle.update()
         pong.update(player_paddle, ai_paddle)
 
-        #CODE TASK: make some text on the screen over everything else saying you lost/won, and then exit on keypress
-        #CODE BONUS: allow restarting of the game (hint: you can recreate the Pong/Paddle objects the same way we made them initially)
+
         if pong.hit_edge_left:
             print ("You Won")
             pong = Pong(screensize)
