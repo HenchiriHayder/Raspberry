@@ -116,8 +116,10 @@ class PlayerPaddle(object):
         self.rect.center = (self.centerx, self.centery)
         if self.rect.top < 0:
             self.rect.top = 0
+			self.centery = self.height//2
         if self.rect.bottom > self.screensize[1]-1:
             self.rect.bottom = self.screensize[1]-1
+			self.centery = self.screensize[1]-self.height//2
 
     def render(self, screen):
         pygame.draw.rect(screen, self.color, self.rect, 0)
